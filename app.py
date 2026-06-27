@@ -107,17 +107,26 @@ st.dataframe(
 st.markdown("---")
 
 # 6. Automated News Section
+# 6. Automated News Section
 st.subheader("📰 Automated Stock News Feed")
 news_found = False
 
 for ticker in tickers:
-    articles = live_data[ticker]['News']
+    articles = live_data[ticker].get('News', [])
     if articles:
-        news_found = True
-        with st.expander(f"News for {portfolio_data[ticker]['Name']} ({ticker})"):
-            for article in articles:
-                st.markdown(f"**[{article['title']}]({article['link']})**")
-                st.caption(f"Source: {article.get('publisher', 'Financial News')} | Type: {article.get('type', 'Story')}")
+        # Check if at least one valid article exists
+        valid_articles = [a for a in articles if isinstance(a, dict)]
+        if valid_articles:
+            news_found = True
+            with st.expander(f"News for {portfolio_data[ticker]['Name']} ({ticker})"):
+                for article in valid_articles:
+                    # Use safety fallbacks (.get) so the app never crashes if Yahoo changes keys
+                    title = article.get('title', article.get('headline', 'No Title Available'))
+                    link = article.get('link', article.get('url', '#'))
+                    publisher = article.get('publisher', article.get('source', 'Financial News'))
+                    
+                    st.markdown(f"**[{title}]({link})**")
+                    st.caption(f"Source: {publisher}")
 
 if not news_found:
     st.info("No active market news found for your specific stock symbols in the last 24 hours.")
