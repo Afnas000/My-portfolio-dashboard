@@ -108,25 +108,52 @@ st.markdown("---")
 
 # 6. Automated News Section
 # 6. Automated News Section
+# 6. Automated News Section
 st.subheader("📰 Automated Stock News Feed")
 news_found = False
+
+def extract_news_info(article):
+    """Smart function to hunt down the title and link no matter where Yahoo hides it."""
+    # 1. Try standard locations first
+    title = article.get('title', '')
+    link = article.get('link', article.get('url', ''))
+    publisher = article.get('publisher', article.get('source', ''))
+    
+    # 2. Check inside the new 'content' folder if Yahoo changed the structure
+    if not title and 'content' in article and isinstance(article['content'], dict):
+        content = article['content']
+        title = content.get('title', '')
+        link = content.get('canonicalUrl', content.get('url', link))
+        provider = content.get('provider', {})
+        if isinstance(provider, dict):
+            publisher = provider.get('displayName', publisher)
+            
+    return title, link, publisher
 
 for ticker in tickers:
     articles = live_data[ticker].get('News', [])
     if articles:
-        # Check if at least one valid article exists
         valid_articles = [a for a in articles if isinstance(a, dict)]
         if valid_articles:
-            news_found = True
-            with st.expander(f"News for {portfolio_data[ticker]['Name']} ({ticker})"):
-                for article in valid_articles:
-                    # Use safety fallbacks (.get) so the app never crashes if Yahoo changes keys
-                    title = article.get('title', article.get('headline', 'No Title Available'))
-                    link = article.get('link', article.get('url', '#'))
-                    publisher = article.get('publisher', article.get('source', 'Financial News'))
-                    
-                    st.markdown(f"**[{title}]({link})**")
-                    st.caption(f"Source: {publisher}")
+            # We will only open the expander if we actually find real news
+            real_news_count = 0
+            news_ui = []
+            
+            for article in valid_articles:
+                title, link, publisher = extract_news_info(article)
+                
+                # Only display if it actually found a real title
+                if title and title != 'No Title Available':
+                    real_news_count += 1
+                    news_ui.append(f"**[{title}]({link})**\n\n<small style='color:gray;'>Source: {publisher}</small>")
+            
+            # If we found at least one real article, show it!
+            if real_news_count > 0:
+                news_found = True
+                with st.expander(f"News for {portfolio_data[ticker]['Name']} ({ticker})"):
+                    for news_item in news_ui:
+                        st.markdown(news_item, unsafe_allow_html=True)
+                        st.markdown("---")
 
 if not news_found:
-    st.info("No active market news found for your specific stock symbols in the last 24 hours.")
+    st.info("No active market news found for your specific stock symbols in the last 24 hours. (Check back later!)")
