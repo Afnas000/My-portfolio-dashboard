@@ -1,53 +1,60 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
+import re
 
 # Set page configuration
 st.set_page_config(page_title="Universal Portfolio Dashboard", layout="wide")
 st.title("📊 Universal Investment Dashboard")
-st.subheader("Upload your portfolio for instant tracking & automated news")
+st.subheader("Your personalized, auto-updating market feed")
 
-# 1. Sidebar File Uploader
-st.sidebar.header("Upload Portfolio")
-uploaded_file = st.sidebar.file_uploader("Upload your Excel (.xlsx) or CSV file", type=["xlsx", "csv"])
+# 1. Handle URL Parameters for "Memory"
+# Check if this user already has a saved sheet in their link
+saved_sheet = st.query_params.get("sheet", "")
 
-# Helper function to match generic uploaded columns to what we need
-def clean_uploaded_df(df):
-    df.columns = df.columns.astype(str).str.strip().str.title()
+st.sidebar.header("User Setup")
+if not saved_sheet:
+    st.sidebar.info("👋 Welcome! Paste your Google Sheet link below to create your permanent dashboard.")
+
+# Text input for the Google Sheet Link
+sheet_link = st.sidebar.text_input("Google Sheet Share Link:", value=saved_sheet, type="password")
+
+# Update the URL so they can bookmark it
+if sheet_link and sheet_link != saved_sheet:
+    st.query_params["sheet"] = sheet_link
+    st.rerun()
+
+if sheet_link:
+    st.sidebar.success("✅ Link saved! **Bookmark this webpage now.** Every time you open this bookmark, your portfolio will load automatically.")
     
-    # Try to find standard column variations
-    stock_col = next((c for c in df.columns if c in ['Instrument', 'Stock', 'Symbol', 'Company', 'Ticker']), None)
-    qty_col = next((c for c in df.columns if c in ['Qty', 'Quantity', 'Shares']), None)
-    price_col = next((c for c in df.columns if c in ['Avg Price', 'Avg. Price', 'Average Price', 'Buy Price', 'Price']), None)
-    
-    if stock_col and qty_col and price_col:
-        renamed_df = df[[stock_col, qty_col, price_col]].dropna().copy()
-        renamed_df.columns = ['Stock', 'Qty', 'Avg Price']
-        return renamed_df
-    return None
-
-if uploaded_file is not None:
+    # 2. Convert Google Sheet link to a readable CSV link
     try:
-        # Read file depending on extension
-        if uploaded_file.name.endswith('.xlsx'):
-            raw_df = pd.read_excel(uploaded_file)
-        else:
-            raw_df = pd.read_csv(uploaded_file)
-            
-        clean_df = clean_uploaded_df(raw_df)
+        # Changes standard share link to a direct CSV download link
+        csv_url = re.sub(r'/edit.*$', '/export?format=csv', sheet_link)
         
-        if clean_df is None:
-            st.error("❌ Could not automatically detect columns. Ensure your file contains columns named 'Stock' (or 'Instrument'), 'Qty', and 'Avg Price'.")
+        # Read the Google Sheet directly from the web
+        raw_df = pd.read_csv(csv_url)
+        
+        # Clean columns to find the right data
+        raw_df.columns = raw_df.columns.astype(str).str.strip().str.title()
+        stock_col = next((c for c in raw_df.columns if c in ['Instrument', 'Stock', 'Symbol', 'Company', 'Ticker']), None)
+        qty_col = next((c for c in raw_df.columns if c in ['Qty', 'Quantity', 'Shares']), None)
+        price_col = next((c for c in raw_df.columns if c in ['Avg Price', 'Avg. Price', 'Average Price', 'Buy Price', 'Price']), None)
+        
+        if not (stock_col and qty_col and price_col):
+            st.error("❌ Could not find the right columns. Make sure your Google Sheet has 'Stock', 'Qty', and 'Avg Price'.")
         else:
-            # Prepare ticker formatting (Appends .NS assuming NSE by default)
+            clean_df = raw_df[[stock_col, qty_col, price_col]].dropna().copy()
+            clean_df.columns = ['Stock', 'Qty', 'Avg Price']
+            
             clean_df['Ticker'] = clean_df['Stock'].astype(str).apply(
                 lambda x: x if x.endswith('.NS') or x.endswith('.BO') else f"{x.split('-')[0].strip()}.NS"
             )
             
-            # 2. Dynamic Live Fetching
             tickers = clean_df['Ticker'].tolist()
             
-            @st.cache_data(ttl=1800) # Cache for 30 minutes to speed up multi-user performance
+            # 3. Dynamic Live Fetching
+            @st.cache_data(ttl=1800)
             def fetch_bulk_market_data(ticker_list):
                 data = {}
                 for ticker in ticker_list:
@@ -63,10 +70,10 @@ if uploaded_file is not None:
                         data[ticker] = {'LTP': None, 'Prev_Close': None, 'News': []}
                 return data
 
-            st.info("🔄 Fetching live market data for uploaded stocks...")
-            live_market_data = fetch_bulk_market_data(tickers)
+            with st.spinner("Fetching live market data..."):
+                live_market_data = fetch_bulk_market_data(tickers)
             
-            # 3. Calculate metrics dynamically
+            # 4. Calculate metrics
             rows = []
             total_invested = 0.0
             total_current = 0.0
@@ -105,7 +112,7 @@ if uploaded_file is not None:
             total_net_pl = total_current - total_invested
             total_net_pct = (total_net_pl / total_invested) * 100 if total_invested > 0 else 0
             
-            # 4. Main KPI Cards Display
+            # 5. Main KPI Cards Display
             m1, m2, m3, m4 = st.columns(4)
             m1.metric("Total Invested", f"₹{total_invested:,.2f}")
             m2.metric("Current Value", f"₹{total_current:,.2f}")
@@ -114,7 +121,7 @@ if uploaded_file is not None:
             
             st.markdown("---")
             
-            # 5. Display Table
+            # 6. Display Table
             st.subheader("📋 Holdings Performance")
             res_df = pd.DataFrame(rows)
             st.dataframe(
@@ -124,7 +131,7 @@ if uploaded_file is not None:
             
             st.markdown("---")
             
-            # 6. Smart News Section
+            # 7. Smart News Section
             st.subheader("📰 Automated Stock News Feed")
             news_found = False
             
@@ -156,7 +163,12 @@ if uploaded_file is not None:
                 st.info("No fresh news headlines available for your portfolio's tickers right now.")
                 
     except Exception as e:
-        st.error(f"Error parsing file: {e}")
+        st.error(f"Could not read the Google Sheet. Please ensure it is set to 'Anyone with the link can view'. Error: {e}")
 else:
-    # Instructions displayed before user uploads a file
-    st.info("💡 **Welcome!** Please upload an Excel sheet or CSV containing your portfolio columns. Ensure your table has clear column headers like: **Instrument/Stock, Qty, and Avg Price** to begin.")
+    # Instructions displayed before user enters link
+    st.info("""
+    ### How to use this dashboard:
+    1. Create a Google Sheet with your portfolio (Columns must be: **Stock**, **Qty**, **Avg Price**).
+    2. Click 'Share' in Google Sheets and set general access to **'Anyone with the link'** (Viewer).
+    3. Copy that link and paste it in the sidebar on the left. 
+    """)
