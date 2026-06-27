@@ -8,19 +8,20 @@ st.title("📊 Personal Investment Dashboard")
 st.subheader("Real-time Tracking & Automated News Aggregator")
 
 # 1. Hardcoded Portfolio Data from your sheet (Instruments mapped to NSE Yahoo Tickers)
+# 1. Corrected Portfolio Data
 portfolio_data = {
     'LT.NS': {'Name': 'Larsen & Toubro', 'Qty': 4, 'Avg Price': 4036.89},
     'HAL.NS': {'Name': 'Hindustan Aeronautics', 'Qty': 1, 'Avg Price': 3603.07},
     'SAIL.NS': {'Name': 'Steel Authority of India', 'Qty': 30, 'Avg Price': 161.22},
     'AXISBANK.NS': {'Name': 'Axis Bank', 'Qty': 4, 'Avg Price': 1371.88},
-    'ANANTRAJ.NS': {'Name': 'Anant Raj Limited', 'Qty': 10, 'Avg Price': 521.56},
-    'WAAREEENER.NS': {'Name': 'Waaree Energies', 'Qty': 2, 'Avg Price': 3217.00},
-    'HINDCOPPER.NS': {'Name': 'Hindustan Copper', 'Qty': 24, 'Avg Price': 363.60},
-    'COFORGE.NS': {'Name': 'Coforge', 'Qty': 1, 'Avg Price': 6484.05},
-    'CDSL.NS': {'Name': 'Central Depository Services', 'Qty': 6, 'Avg Price': 1486.25},
-    'TRENT.NS': {'Name': 'Trent Limited', 'Qty': 1, 'Avg Price': 9304.05},
-    'DEVYANI.NS': {'Name': 'Devyani International', 'Qty': 29, 'Avg Price': 172.31},
-    'HNGSNGBEES.NS': {'Name': 'Hang Seng BeES', 'Qty': 400, 'Avg Price': 16.91}
+    'ANANTRAJ.NS': {'Name': 'Anant Raj', 'Qty': 10, 'Avg Price': 521.56},
+    'WAAREEENER.NS': {'Name': 'Waaree Energies', 'Qty': 2, 'Avg Price': 3216.85},
+    'HINDCOPPER.NS': {'Name': 'Hindustan Copper', 'Qty': 16, 'Avg Price': 545.50},
+    'COFORGE.NS': {'Name': 'Coforge', 'Qty': 5, 'Avg Price': 1296.89},
+    'CDSL.NS': {'Name': 'CDSL', 'Qty': 7, 'Avg Price': 1274.24},
+    'TRENT.NS': {'Name': 'Trent Limited', 'Qty': 3, 'Avg Price': 3101.51},
+    'DEVYANI.NS': {'Name': 'Devyani International', 'Qty': 43, 'Avg Price': 116.21},
+    'HNGSNGBEES.NS': {'Name': 'Hang Seng BeES', 'Qty': 13, 'Avg Price': 520.04}
 }
 
 # 2. Fetch Live Market Data dynamically
